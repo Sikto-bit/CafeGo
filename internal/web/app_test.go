@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -162,7 +164,7 @@ func TestAuthenticationAndSecurity(t *testing.T) {
 	if role != "client" || bcrypt.CompareHashAndPassword([]byte(hash), []byte("a-safe-test-password")) != nil {
 		t.Fatal("role/hash invalid")
 	}
-	for _, path := range []string{"/admin"} {
+	for _, path := range []string{"/admin", "/admin/categories", "/admin/dishes"} {
 		res, err := b.client.Get(s.URL + path)
 		if err != nil {
 			t.Fatal(err)
@@ -172,6 +174,10 @@ func TestAuthenticationAndSecurity(t *testing.T) {
 			t.Fatalf("unguarded %s", path)
 		}
 	}
+	b.post("/admin/categories/save", url.Values{"name": {"Injected"}}, 403)
+	b.post("/admin/categories/delete", url.Values{"id": {"1"}}, 403)
+	b.post("/admin/dishes/save", url.Values{"name": {"Injected"}}, 403)
+	b.post("/admin/dishes/delete", url.Values{"id": {"1"}}, 403)
 	outsider := newBrowser(t, s)
 	outsider.get("/login")
 	outsider.rawPost("/login", url.Values{"csrf": {b.csrf}, "login": {"alice"}, "password": {"a-safe-test-password"}}, 403)
@@ -214,6 +220,63 @@ func TestAuthenticationAndSecurity(t *testing.T) {
 	}
 }
 
+func TestCatalogCRUD(t *testing.T) {
+	db, s := setup(t)
+	insertAdmin(t, db)
+	a := newBrowser(t, s)
+	a.login("admin")
+	for _, path := range []string{"/admin", "/admin/categories", "/admin/dishes"} {
+		a.get(path)
+	}
+	a.post("/admin/categories/save", url.Values{"name": {"Завтраки"}}, 303)
+	cat := count(t, db, "SELECT id FROM categories WHERE name='Завтраки'")
+	a.get("/admin/categories?edit=" + strconv.Itoa(cat))
+	a.post("/admin/categories/save", url.Values{"id": {strconv.Itoa(cat)}, "name": {"Завтраки дня"}}, 303)
+	a.post("/admin/categories/save", url.Values{"name": {"Завтраки дня"}}, 200)
+	form := url.Values{"category_id": {strconv.Itoa(cat)}, "name": {"<script>alert(1)</script>"}, "description": {"Овсянка с ягодами"}, "price": {"123,45"}}
+	a.post("/admin/dishes/save", form, 303)
+	dish := count(t, db, "SELECT id FROM dishes WHERE description='Овсянка с ягодами'")
+	id := strconv.Itoa(dish)
+	a.get("/admin/dishes?edit=" + id)
+	a.post("/admin/categories/delete", url.Values{"id": {strconv.Itoa(cat)}}, 200)
+	if count(t, db, "SELECT count(*) FROM categories WHERE id=?", cat) != 1 {
+		t.Fatal("deleted occupied category")
+	}
+	b := newBrowser(t, s)
+	b.register("client1")
+	body := b.get("/?category=" + strconv.Itoa(cat))
+	if strings.Contains(body, "<script>") || !strings.Contains(body, "&lt;script&gt;") {
+		t.Fatal("HTML not escaped")
+	}
+	form.Set("id", id)
+	form.Set("name", "Овсянка")
+	form.Set("price", "150.25")
+	a.post("/admin/dishes/save", form, 303)
+	body = b.get("/?category=" + strconv.Itoa(cat))
+	if !strings.Contains(body, "Овсянка") || !strings.Contains(body, "150,25") {
+		t.Fatal("updated dish missing from menu")
+	}
+	a.post("/admin/dishes/delete", url.Values{"id": {id}}, 303)
+	a.post("/admin/categories/delete", url.Values{"id": {strconv.Itoa(cat)}}, 303)
+	if count(t, db, "SELECT count(*) FROM categories WHERE id=?", cat) != 0 {
+		t.Fatal("category not deleted")
+	}
+	a.post("/admin/dishes/delete", url.Values{"id": {"1 OR 1=1"}}, 400)
+	a.post("/admin/categories/save", url.Values{"name": {strings.Repeat("Я", 81)}}, 200)
+}
+func TestPrices(t *testing.T) {
+	for input, want := range map[string]int64{"0.01": 1, "12": 1200, "12,3": 1230, "100000.00": 10000000} {
+		got, err := ParsePrice(input)
+		if err != nil || got != want {
+			t.Errorf("%s: %d %v", input, got, err)
+		}
+	}
+	for _, input := range []string{"-1", "0", "1.001", "1e2", "NaN", "1.2.3", "100000.01", "1.", "+1", "999999999999999999999"} {
+		if _, err := ParsePrice(input); err == nil {
+			t.Errorf("accepted %q", input)
+		}
+	}
+}
 func TestAdminLoginAfterDatabaseReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "persist.db")
 	db, err := store.Open(path)

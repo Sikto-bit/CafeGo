@@ -1,0 +1,34 @@
+{{define "dishes"}}{{template "header" .}}{{template "adminnav" .}}<p class="eyebrow">УПРАВЛЕНИЕ МЕНЮ</p>
+<h1>Блюда</h1>
+<div class="split">
+<section class="panel">
+<h2>{{if .EditDish.ID}}Редактировать блюдо{{else}}Добавить блюдо{{end}}</h2>{{if .Categories}}<form action="/admin/dishes/save" method="post" class="stack">
+<input type="hidden" name="csrf" value="{{.Session.CSRF}}">{{if .EditDish.ID}}<input type="hidden" name="id" value="{{.EditDish.ID}}">{{end}}<label>Название<input name="name" value="{{.EditDish.Name}}" required maxlength="120">
+</label>
+<label>Описание<textarea name="description" maxlength="1000" rows="3">{{.EditDish.Description}}</textarea>
+</label>
+<label>Цена, ₽<input name="price" inputmode="decimal" value="{{if .EditDish.ID}}{{decimal .EditDish.Price}}{{end}}" placeholder="390,00" required>
+</label>
+<label>Категория<select name="category_id" required>{{range .Categories}}<option value="{{.ID}}" {{if eq .ID $.EditDish.CategoryID}}selected{{end}}>{{.Name}}</option>{{end}}</select>
+</label>
+<button>Сохранить блюдо</button>
+<a href="/admin/dishes">Сбросить</a>
+</form>{{else}}<p>Сначала <a href="/admin/categories">создайте категорию</a>.</p>{{end}}</section>
+<section class="panel">
+<h2>Текущее меню</h2>{{range .Dishes}}<div class="listrow">
+<div>
+<strong>{{.Name}}</strong>
+<p class="muted">{{.Category}} · {{money .Price}}</p>
+<p>{{.Description}}</p>
+</div>
+<div class="actions">
+<a href="/admin/dishes?edit={{.ID}}">Изменить</a>
+<form action="/admin/dishes/delete" method="post">
+<input type="hidden" name="csrf" value="{{$.Session.CSRF}}">
+<input type="hidden" name="id" value="{{.ID}}">
+<button class="danger">Удалить</button>
+</form>
+</div>
+</div>{{else}}<p>Блюд пока нет.</p>{{end}}<p class="muted">Удалённое блюдо исчезнет из меню.</p>
+</section>
+</div>{{template "footer" .}}{{end}}

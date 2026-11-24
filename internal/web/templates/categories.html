@@ -1,0 +1,26 @@
+{{define "categories"}}{{template "header" .}}{{template "adminnav" .}}<p class="eyebrow">УПРАВЛЕНИЕ МЕНЮ</p>
+<h1>Категории</h1>
+<div class="split">
+<section class="panel">
+<h2>{{if .EditCategory.ID}}Редактирование{{else}}Новая категория{{end}}</h2>
+<form action="/admin/categories/save" method="post" class="stack">
+<input type="hidden" name="csrf" value="{{.Session.CSRF}}">{{if .EditCategory.ID}}<input type="hidden" name="id" value="{{.EditCategory.ID}}">{{end}}<label>Название<input name="name" value="{{.EditCategory.Name}}" required maxlength="80">
+</label>
+<button>Сохранить</button>
+<a href="/admin/categories">Сбросить</a>
+</form>
+</section>
+<section class="panel">
+<h2>Все категории</h2>{{range .Categories}}<div class="listrow">
+<strong>{{.Name}}</strong>
+<div class="actions">
+<a href="/admin/categories?edit={{.ID}}">Изменить</a>
+<form action="/admin/categories/delete" method="post">
+<input type="hidden" name="csrf" value="{{$.Session.CSRF}}">
+<input type="hidden" name="id" value="{{.ID}}">
+<button class="danger">Удалить</button>
+</form>
+</div>
+</div>{{else}}<p>Категорий пока нет.</p>{{end}}<p class="muted">Занятую категорию можно удалить после переноса или удаления её блюд.</p>
+</section>
+</div>{{template "footer" .}}{{end}}

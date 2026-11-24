@@ -30,7 +30,7 @@
 </footer>
 </body>
 </html>{{end}}
-{{define "adminhome"}}{{template "header" .}}<section class="panel">
-<h1>Управление кафе</h1>
-<p>Вы вошли как администратор. Управление каталогом, заказы и сводка пока недоступны.</p>
-</section>{{template "footer" .}}{{end}}
+{{define "adminnav"}}<nav class="tabs">
+<a href="/admin/categories">Категории</a>
+<a href="/admin/dishes">Блюда</a>
+</nav>{{end}}

@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 //go:embed templates/*.html static/*
@@ -32,6 +33,8 @@ type Page struct {
 	Session              Session
 	Categories           []Category
 	Dishes               []Dish
+	EditCategory         Category
+	EditDish             Dish
 	Filter               int
 }
 type Category struct {
@@ -52,7 +55,7 @@ func New(db *sql.DB, secure bool) *App {
 			return "C"
 		}
 		return string(r[0])
-	}}
+	}, "decimal": func(n int64) string { return fmt.Sprintf("%d,%02d", n/100, n%100) }}
 	return &App{DB: db, Secure: secure, templates: template.Must(template.New("pages").Funcs(funcs).ParseFS(assets, "templates/*.html"))}
 }
 func (a *App) render(w http.ResponseWriter, r *http.Request, name string, p Page) {
@@ -80,6 +83,7 @@ func number(s string) (int, error) {
 	}
 	return n, nil
 }
+func text(s string, max int) bool { return strings.TrimSpace(s) != "" && len([]rune(s)) <= max }
 func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", a.menu)
@@ -88,15 +92,19 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("GET /login", a.authPage)
 	mux.HandleFunc("POST /login", a.login)
 	mux.HandleFunc("POST /logout", client(a.logout))
-	mux.HandleFunc("GET /admin", admin(a.adminHome))
+	mux.HandleFunc("GET /admin/categories", admin(a.categoryPage))
+	mux.HandleFunc("POST /admin/categories/save", admin(a.saveCategory))
+	mux.HandleFunc("POST /admin/categories/delete", admin(a.deleteCategory))
+	mux.HandleFunc("GET /admin/dishes", admin(a.dishPage))
+	mux.HandleFunc("POST /admin/dishes/save", admin(a.saveDish))
+	mux.HandleFunc("POST /admin/dishes/delete", admin(a.deleteDish))
+	mux.HandleFunc("GET /admin", admin(func(w http.ResponseWriter, r *http.Request) {
+		redirect(w, r, "/admin/categories")
+	}))
 	mux.HandleFunc("GET /static/style.css", func(w http.ResponseWriter, r *http.Request) {
 		b, _ := assets.ReadFile("static/style.css")
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")
 		w.Write(b)
 	})
 	return a.security(mux)
-}
-
-func (a *App) adminHome(w http.ResponseWriter, r *http.Request) {
-	a.render(w, r, "adminhome", Page{Title: "Управление"})
 }
