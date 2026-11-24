@@ -1,0 +1,33 @@
+{{define "dashboard"}}{{template "header" .}}{{template "adminnav" .}}<section class="dashboard-head">
+<p class="eyebrow">ВСЁ ПОД КОНТРОЛЕМ</p>
+<h1>Добрый день, {{.Session.User.Login}}.</h1>
+<p>Меню, заказы и маленькие детали, из которых складывается хорошее кафе.</p>
+</section>
+<div class="stats">
+<a class="panel stat" href="/admin/categories">
+<span>Категории</span>
+<strong>{{index .Counts 0}}</strong>
+<small>Организовать меню →</small>
+</a>
+<a class="panel stat" href="/admin/dishes">
+<span>Блюда в меню</span>
+<strong>{{index .Counts 1}}</strong>
+<small>Обновить предложение →</small>
+</a>
+<a class="panel stat" href="/admin/orders">
+<span>Активные заказы</span>
+<strong>{{index .Counts 2}}</strong>
+<small>Перейти к заказам →</small>
+</a>
+<div class="panel stat">
+<span>Клиенты</span>
+<strong>{{index .Counts 3}}</strong>
+<small>Зарегистрированные гости</small>
+</div>
+</div>
+<section class="panel guide">
+<h2>Рабочий день начинается здесь</h2>
+<p>
+<a href="/admin/categories">Создайте категории</a>, затем <a href="/admin/dishes">добавьте блюда</a> с ценами и описанием. Новые заказы появятся в <a href="/admin/orders">списке заказов</a>.</p>
+<p class="muted">Цена и название в оформленном заказе не меняются при редактировании меню.</p>
+</section>{{template "footer" .}}{{end}}

@@ -38,6 +38,7 @@ type Page struct {
 	Total                int64
 	EditCategory         Category
 	EditDish             Dish
+	Counts               [4]int
 	Filter               int
 }
 type Category struct {
@@ -128,9 +129,7 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("GET /orders", client(a.orders))
 	mux.HandleFunc("GET /admin/orders", admin(a.adminOrders))
 	mux.HandleFunc("POST /admin/orders/status", admin(a.changeStatus))
-	mux.HandleFunc("GET /admin", admin(func(w http.ResponseWriter, r *http.Request) {
-		redirect(w, r, "/admin/categories")
-	}))
+	mux.HandleFunc("GET /admin", admin(a.dashboard))
 	mux.HandleFunc("GET /static/style.css", func(w http.ResponseWriter, r *http.Request) {
 		b, _ := assets.ReadFile("static/style.css")
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")
