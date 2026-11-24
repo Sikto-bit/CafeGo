@@ -17,9 +17,19 @@ var assets embed.FS
 type App struct {
 	DB        *sql.DB
 	templates *template.Template
+	Secure    bool
+}
+type User struct {
+	ID          int
+	Login, Role string
+}
+type Session struct {
+	User       User
+	CSRF, Hash string
 }
 type Page struct {
 	Title, Error, Notice string
+	Session              Session
 	Categories           []Category
 	Dishes               []Dish
 	Filter               int
@@ -35,7 +45,7 @@ type Dish struct {
 }
 
 func Money(n int64) string { return fmt.Sprintf("%d,%02d ₽", n/100, n%100) }
-func New(db *sql.DB) *App {
+func New(db *sql.DB, secure bool) *App {
 	funcs := template.FuncMap{"money": Money, "initial": func(s string) string {
 		r := []rune(s)
 		if len(r) == 0 {
@@ -43,9 +53,10 @@ func New(db *sql.DB) *App {
 		}
 		return string(r[0])
 	}}
-	return &App{DB: db, templates: template.Must(template.New("pages").Funcs(funcs).ParseFS(assets, "templates/*.html"))}
+	return &App{DB: db, Secure: secure, templates: template.Must(template.New("pages").Funcs(funcs).ParseFS(assets, "templates/*.html"))}
 }
 func (a *App) render(w http.ResponseWriter, r *http.Request, name string, p Page) {
+	p.Session = session(r)
 	var b bytes.Buffer
 	if err := a.templates.ExecuteTemplate(&b, name, p); err != nil {
 		a.fail(w, err)
@@ -59,6 +70,9 @@ func (a *App) fail(w http.ResponseWriter, err error) {
 	http.Error(w, "Внутренняя ошибка. Попробуйте позже.", 500)
 }
 func bad(w http.ResponseWriter, message string) { http.Error(w, message, http.StatusBadRequest) }
+func redirect(w http.ResponseWriter, r *http.Request, path string) {
+	http.Redirect(w, r, path, http.StatusSeeOther)
+}
 func number(s string) (int, error) {
 	n, e := strconv.Atoi(s)
 	if e != nil || n < 1 {
@@ -69,10 +83,20 @@ func number(s string) (int, error) {
 func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", a.menu)
+	mux.HandleFunc("GET /register", a.authPage)
+	mux.HandleFunc("POST /register", a.register)
+	mux.HandleFunc("GET /login", a.authPage)
+	mux.HandleFunc("POST /login", a.login)
+	mux.HandleFunc("POST /logout", client(a.logout))
+	mux.HandleFunc("GET /admin", admin(a.adminHome))
 	mux.HandleFunc("GET /static/style.css", func(w http.ResponseWriter, r *http.Request) {
 		b, _ := assets.ReadFile("static/style.css")
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")
 		w.Write(b)
 	})
-	return mux
+	return a.security(mux)
+}
+
+func (a *App) adminHome(w http.ResponseWriter, r *http.Request) {
+	a.render(w, r, "adminhome", Page{Title: "Управление"})
 }

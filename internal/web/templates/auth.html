@@ -1,0 +1,32 @@
+{{define "login"}}{{template "header" .}}<section class="auth panel">
+<p class="eyebrow">ВАШЕ ЛЮБИМОЕ КАФЕ</p>
+<h1>С возвращением</h1>
+<p>Войдите, чтобы заказать что-нибудь вкусное.</p>
+<form method="post" action="/login" class="stack">
+<input type="hidden" name="csrf" value="{{.Session.CSRF}}">
+<label>Логин<input name="login" autocomplete="username" required maxlength="32">
+</label>
+<label>Пароль<input type="password" name="password" autocomplete="current-password" required maxlength="72">
+</label>
+<button>Войти</button>
+</form>
+<p>Впервые у нас? <a href="/register">Создать аккаунт</a>
+</p>
+</section>{{template "footer" .}}{{end}}
+{{define "register"}}{{template "header" .}}<section class="auth panel">
+<p class="eyebrow">ПРИСОЕДИНЯЙТЕСЬ К НАМ</p>
+<h1>Создать аккаунт</h1>
+<p>Ваш следующий вкусный перерыв начинается здесь.</p>
+<form method="post" action="/register" class="stack">
+<input type="hidden" name="csrf" value="{{.Session.CSRF}}">
+<label>Логин<input name="login" autocomplete="username" pattern="[a-zA-Z0-9_]{3,32}" required minlength="3" maxlength="32">
+<small>3–32 латинские буквы, цифры или _</small>
+</label>
+<label>Пароль<input type="password" name="password" autocomplete="new-password" required minlength="10" maxlength="72">
+<small>От 10 символов, не более 72 байт UTF-8.</small>
+</label>
+<button>Зарегистрироваться</button>
+</form>
+<p>Уже есть аккаунт? <a href="/login">Войти</a>
+</p>
+</section>{{template "footer" .}}{{end}}

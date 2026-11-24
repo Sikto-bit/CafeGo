@@ -14,7 +14,12 @@
 <small>Еда. Кофе. Хороший день.</small>
 </a>
 <nav>
-<a href="/">Меню</a></nav>
+<a href="/">Меню</a>{{if .Session.User.ID}}{{if eq .Session.User.Role "admin"}}<a href="/admin">Управление</a>{{end}}<span class="username">{{.Session.User.Login}}</span>
+<form action="/logout" method="post">
+<input type="hidden" name="csrf" value="{{.Session.CSRF}}">
+<button class="link">Выйти</button>
+</form>{{else}}<a href="/login">Войти</a>
+<a class="button small" href="/register">Регистрация</a>{{end}}</nav>
 </header>
 <main>{{if .Error}}<div class="alert" role="alert">{{.Error}}</div>{{end}}{{if .Notice}}<div class="notice" role="status">{{.Notice}}</div>{{end}}{{end}}
 {{define "footer"}}</main>
@@ -25,3 +30,7 @@
 </footer>
 </body>
 </html>{{end}}
+{{define "adminhome"}}{{template "header" .}}<section class="panel">
+<h1>Управление кафе</h1>
+<p>Вы вошли как администратор. Управление каталогом, заказы и сводка пока недоступны.</p>
+</section>{{template "footer" .}}{{end}}

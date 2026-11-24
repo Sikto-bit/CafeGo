@@ -2,7 +2,10 @@ module cafego
 
 go 1.23.0
 
-require modernc.org/sqlite v1.34.5
+require (
+	golang.org/x/crypto v0.31.0
+	modernc.org/sqlite v1.34.5
+)
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
