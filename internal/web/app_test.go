@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -164,7 +165,7 @@ func TestAuthenticationAndSecurity(t *testing.T) {
 	if role != "client" || bcrypt.CompareHashAndPassword([]byte(hash), []byte("a-safe-test-password")) != nil {
 		t.Fatal("role/hash invalid")
 	}
-	for _, path := range []string{"/admin", "/admin/categories", "/admin/dishes"} {
+	for _, path := range []string{"/admin", "/admin/categories", "/admin/dishes", "/admin/orders"} {
 		res, err := b.client.Get(s.URL + path)
 		if err != nil {
 			t.Fatal(err)
@@ -178,11 +179,12 @@ func TestAuthenticationAndSecurity(t *testing.T) {
 	b.post("/admin/categories/delete", url.Values{"id": {"1"}}, 403)
 	b.post("/admin/dishes/save", url.Values{"name": {"Injected"}}, 403)
 	b.post("/admin/dishes/delete", url.Values{"id": {"1"}}, 403)
+	b.post("/admin/orders/status", url.Values{"id": {"1"}, "status": {"ready"}}, 403)
 	outsider := newBrowser(t, s)
 	outsider.get("/login")
 	outsider.rawPost("/login", url.Values{"csrf": {b.csrf}, "login": {"alice"}, "password": {"a-safe-test-password"}}, 403)
 	b.post("/logout", nil, 303)
-	res, err := b.client.Get(s.URL + "/admin")
+	res, err := b.client.Get(s.URL + "/cart")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +195,7 @@ func TestAuthenticationAndSecurity(t *testing.T) {
 	b.get("/login")
 	b.post("/login", url.Values{"login": {"alice"}, "password": {"wrong-password"}}, 200)
 	b.login("alice")
-	b.get("/")
+	b.get("/cart")
 	b.post("/register", url.Values{"login": {"ALICE"}, "password": {"a-safe-test-password"}}, 200)
 	if count(t, db, "SELECT count(*) FROM users") != 1 {
 		t.Fatal("case-insensitive duplicate")
@@ -220,12 +222,12 @@ func TestAuthenticationAndSecurity(t *testing.T) {
 	}
 }
 
-func TestCatalogCRUD(t *testing.T) {
+func TestCRUDCartAndOrders(t *testing.T) {
 	db, s := setup(t)
 	insertAdmin(t, db)
 	a := newBrowser(t, s)
 	a.login("admin")
-	for _, path := range []string{"/admin", "/admin/categories", "/admin/dishes"} {
+	for _, path := range []string{"/admin", "/admin/categories", "/admin/dishes", "/admin/orders", "/cart", "/orders"} {
 		a.get(path)
 	}
 	a.post("/admin/categories/save", url.Values{"name": {"Завтраки"}}, 303)
@@ -248,15 +250,58 @@ func TestCatalogCRUD(t *testing.T) {
 	if strings.Contains(body, "<script>") || !strings.Contains(body, "&lt;script&gt;") {
 		t.Fatal("HTML not escaped")
 	}
+	b.post("/cart/add", url.Values{"dish_id": {id}}, 303)
+	b.post("/cart/update", url.Values{"dish_id": {id}, "quantity": {"0"}}, 400)
+	b.post("/cart/update", url.Values{"dish_id": {id}, "quantity": {"100"}}, 400)
+	b.post("/cart/update", url.Values{"dish_id": {id}, "quantity": {"3"}}, 303)
+	if !strings.Contains(b.get("/cart"), "370,35") {
+		t.Fatal("incorrect cart total")
+	}
+	other := newBrowser(t, s)
+	other.register("client2")
+	other.post("/cart/update", url.Values{"dish_id": {id}, "quantity": {"9"}}, 404)
+	other.post("/cart/remove", url.Values{"dish_id": {id}}, 303)
+	if count(t, db, "SELECT quantity FROM cart WHERE dish_id=?", dish) != 3 {
+		t.Fatal("cart isolation failed")
+	}
+	// Price changes are applied at checkout; snapshots remain stable afterwards.
 	form.Set("id", id)
 	form.Set("name", "Овсянка")
 	form.Set("price", "150.25")
 	a.post("/admin/dishes/save", form, 303)
-	body = b.get("/?category=" + strconv.Itoa(cat))
-	if !strings.Contains(body, "Овсянка") || !strings.Contains(body, "150,25") {
-		t.Fatal("updated dish missing from menu")
+	b.post("/checkout", url.Values{"comment": {"Без сахара"}}, 303)
+	if count(t, db, "SELECT total FROM orders") != 45075 {
+		t.Fatal("wrong checkout price")
 	}
+	if count(t, db, "SELECT count(*) FROM cart") != 0 {
+		t.Fatal("cart not cleared")
+	}
+	b.post("/checkout", nil, 400)
+	if !strings.Contains(b.get("/orders"), "Без сахара") {
+		t.Fatal("missing order")
+	}
+	if strings.Contains(other.get("/orders"), "Без сахара") {
+		t.Fatal("order data leak")
+	}
+	a.get("/admin/orders")
+	a.post("/admin/orders/status", url.Values{"id": {"1"}, "status": {"completed"}}, 400)
+	for _, status := range []string{"cooking", "ready", "completed"} {
+		a.post("/admin/orders/status", url.Values{"id": {"1"}, "status": {status}}, 303)
+	}
+	a.post("/admin/orders/status", url.Values{"id": {"1"}, "status": {"new"}}, 400)
+	a.post("/admin/orders/status", url.Values{"id": {"1"}, "status": {"unknown"}}, 400)
+	// Add to a second cart to exercise ON DELETE CASCADE and SET NULL together.
+	other.post("/cart/add", url.Values{"dish_id": {id}}, 303)
 	a.post("/admin/dishes/delete", url.Values{"id": {id}}, 303)
+	if count(t, db, "SELECT count(*) FROM cart") != 0 {
+		t.Fatal("deleted dish retained in cart")
+	}
+	if count(t, db, "SELECT count(*) FROM order_items WHERE dish_id IS NULL") != 1 {
+		t.Fatal("snapshot relation not cleared")
+	}
+	if !strings.Contains(b.get("/orders"), "Овсянка") {
+		t.Fatal("historical dish lost")
+	}
 	a.post("/admin/categories/delete", url.Values{"id": {strconv.Itoa(cat)}}, 303)
 	if count(t, db, "SELECT count(*) FROM categories WHERE id=?", cat) != 0 {
 		t.Fatal("category not deleted")
@@ -264,6 +309,45 @@ func TestCatalogCRUD(t *testing.T) {
 	a.post("/admin/dishes/delete", url.Values{"id": {"1 OR 1=1"}}, 400)
 	a.post("/admin/categories/save", url.Values{"name": {strings.Repeat("Я", 81)}}, 200)
 }
+
+func TestConcurrentCheckoutAndExpiredSession(t *testing.T) {
+	db, s := setup(t)
+	b := newBrowser(t, s)
+	b.register("parallel")
+	b.post("/cart/add", url.Values{"dish_id": {"1"}}, 303)
+	var wg sync.WaitGroup
+	codes := make(chan int, 2)
+	for range 2 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			res, err := b.client.PostForm(s.URL+"/checkout", url.Values{"csrf": {b.csrf}})
+			if err != nil {
+				codes <- 0
+				return
+			}
+			res.Body.Close()
+			codes <- res.StatusCode
+		}()
+	}
+	wg.Wait()
+	close(codes)
+	seen := map[int]int{}
+	for code := range codes {
+		seen[code]++
+	}
+	if seen[303] != 1 || seen[400] != 1 || count(t, db, "SELECT count(*) FROM orders") != 1 {
+		t.Fatal("duplicate checkout", seen)
+	}
+	if _, err := db.Exec("UPDATE sessions SET expires=0"); err != nil {
+		t.Fatal(err)
+	}
+	b.post("/cart/add", url.Values{"dish_id": {"1"}}, 403)
+	if count(t, db, "SELECT count(*) FROM cart") != 0 {
+		t.Fatal("expired session accepted")
+	}
+}
+
 func TestPrices(t *testing.T) {
 	for input, want := range map[string]int64{"0.01": 1, "12": 1200, "12,3": 1230, "100000.00": 10000000} {
 		got, err := ParsePrice(input)
@@ -277,6 +361,61 @@ func TestPrices(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckoutRollback(t *testing.T) {
+	db, s := setup(t)
+	b := newBrowser(t, s)
+	b.register("rollback")
+	b.post("/cart/add", url.Values{"dish_id": {"1"}}, 303)
+	// Inject a database failure after the order insert, before the cart deletion.
+	if _, err := db.Exec(`CREATE TRIGGER reject_item BEFORE INSERT ON order_items BEGIN SELECT RAISE(ABORT,'test failure'); END;`); err != nil {
+		t.Fatal(err)
+	}
+	b.post("/checkout", nil, 500)
+	if count(t, db, "SELECT count(*) FROM orders") != 0 || count(t, db, "SELECT count(*) FROM cart") != 1 {
+		t.Fatal("checkout did not roll back completely")
+	}
+	if _, err := db.Exec("DROP TRIGGER reject_item"); err != nil {
+		t.Fatal(err)
+	}
+	b.post("/checkout", nil, 303)
+}
+
+func TestBatchCartUpdate(t *testing.T) {
+	db, s := setup(t)
+	b := newBrowser(t, s)
+	b.register("batch_cart")
+	for _, id := range []string{"1", "2"} {
+		b.post("/cart/add", url.Values{"dish_id": {id}}, 303)
+	}
+	body := b.get("/cart")
+	if strings.Count(body, `form="cart-update" type="submit"`) != 1 {
+		t.Fatal("expected a single shared cart update button")
+	}
+	b.post("/cart/update", url.Values{"dish_id": {"1", "2"}, "quantity": {"3", "4"}}, 303)
+	if count(t, db, "SELECT quantity FROM cart WHERE dish_id=1") != 3 || count(t, db, "SELECT quantity FROM cart WHERE dish_id=2") != 4 {
+		t.Fatal("batch quantities not saved")
+	}
+	if !strings.Contains(b.get("/cart"), "3130,00") {
+		t.Fatal("batch total not recalculated")
+	}
+	// An invalid later row must leave all quantities unchanged.
+	b.post("/cart/update", url.Values{"dish_id": {"1", "2"}, "quantity": {"8", "100"}}, 400)
+	// A missing/foreign row discovered after a valid UPDATE must roll back too.
+	b.post("/cart/update", url.Values{"dish_id": {"1", "3"}, "quantity": {"8", "2"}}, 404)
+	b.post("/cart/update", url.Values{"dish_id": {"1", "1"}, "quantity": {"8", "2"}}, 400)
+	b.post("/cart/update", url.Values{"dish_id": {"1", "2"}, "quantity": {"8"}}, 400)
+	if count(t, db, "SELECT quantity FROM cart WHERE dish_id=1") != 3 || count(t, db, "SELECT quantity FROM cart WHERE dish_id=2") != 4 {
+		t.Fatal("failed batch partially changed the cart")
+	}
+	other := newBrowser(t, s)
+	other.register("other_batch")
+	other.post("/cart/update", url.Values{"dish_id": {"1", "2"}, "quantity": {"1", "1"}}, 404)
+	if count(t, db, "SELECT quantity FROM cart WHERE dish_id=1") != 3 {
+		t.Fatal("batch update crossed user boundary")
+	}
+}
+
 func TestAdminLoginAfterDatabaseReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "persist.db")
 	db, err := store.Open(path)

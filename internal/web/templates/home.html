@@ -36,7 +36,11 @@
 <h3>{{.Name}}</h3>
 <p>{{.Description}}</p>
 <div class="dish-bottom">
-<strong>{{money .Price}}</strong><span class="muted">Заказы пока недоступны</span></div>
+<strong>{{money .Price}}</strong>{{if $.Session.User.ID}}<form action="/cart/add" method="post">
+<input type="hidden" name="csrf" value="{{$.Session.CSRF}}">
+<input type="hidden" name="dish_id" value="{{.ID}}">
+<button>+ В корзину</button>
+</form>{{else}}<a class="button small" href="/login">Войти и заказать</a>{{end}}</div>
 </div>
 </article>{{else}}<div class="panel empty">
 <h3>Здесь пока тихо</h3>

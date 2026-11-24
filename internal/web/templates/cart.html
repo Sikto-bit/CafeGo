@@ -1,0 +1,48 @@
+{{define "cart"}}{{template "header" .}}<p class="eyebrow">ЕЩЁ ШАГ ДО ВКУСНОГО ПЕРЕРЫВА</p>
+<h1>Ваша корзина</h1>{{if .Cart}}<div class="split cart-layout">
+<section class="panel">
+<form id="cart-update" action="/cart/update" method="post">
+<input type="hidden" name="csrf" value="{{.Session.CSRF}}">
+</form>
+{{range .Cart}}<article class="listrow">
+<div>
+<h3>{{.Name}}</h3>
+<p class="muted">{{money .Price}} за порцию</p>
+<strong>{{money .Subtotal}}</strong>
+</div>
+<div class="stack">
+<input form="cart-update" type="hidden" name="dish_id" value="{{.ID}}">
+<label>Количество<input form="cart-update" class="quantity" type="number" min="1" max="99" name="quantity" value="{{.Quantity}}" required>
+</label>
+<form action="/cart/remove" method="post">
+<input type="hidden" name="csrf" value="{{$.Session.CSRF}}">
+<input type="hidden" name="dish_id" value="{{.ID}}">
+<button class="link">Убрать из корзины</button>
+</form>
+</div>
+</article>{{end}}
+<div class="cart-update-actions">
+<p class="muted">Измените количество блюд и сохраните всё одной кнопкой.</p>
+<button form="cart-update" type="submit">Обновить корзину</button>
+</div>
+</section>
+<aside class="panel checkout">
+<h2>Ваш заказ</h2>
+<div class="listrow">
+<span>Итого</span>
+<strong class="price">{{money .Total}}</strong>
+</div>
+<p class="muted">Самовывоз из кафе. Оплата при получении. Окончательная сумма рассчитывается по ценам меню в момент оформления.</p>
+<form action="/checkout" method="post" class="stack">
+<input type="hidden" name="csrf" value="{{.Session.CSRF}}">
+<label>Комментарий к заказу<textarea name="comment" maxlength="500" rows="3" placeholder="Например: без сахара">
+</textarea>
+</label>
+<button>Оформить заказ →</button>
+</form>
+</aside>
+</div>{{else}}<section class="panel empty">
+<h2>Пока ничего, кроме предвкушения</h2>
+<p>Добавьте блюда из меню, и они появятся здесь.</p>
+<a class="button" href="/">Посмотреть меню</a>
+</section>{{end}}{{template "footer" .}}{{end}}

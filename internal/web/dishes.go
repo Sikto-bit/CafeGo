@@ -86,6 +86,9 @@ func (a *App) menu(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, err)
 		return
 	}
+	if r.URL.Query().Get("added") == "1" {
+		p.Notice = "Блюдо добавлено в корзину."
+	}
 	a.render(w, r, "home", p)
 }
 func (a *App) dishPage(w http.ResponseWriter, r *http.Request) { a.showDishes(w, r, "") }

@@ -1,0 +1,30 @@
+{{define "orderlist"}}{{range .Orders}}<article class="panel order order-status-{{.Status}}">
+<div class="section-title">
+<div>
+<h2>Заказ №{{.ID}}</h2>
+<p class="muted">{{.Created}} UTC · {{.Login}}</p>
+</div>
+<span class="status status-{{.Status}}">{{status .Status}}</span>
+</div>{{range .Items}}<div class="listrow">
+<span>{{.Name}} × {{.Quantity}}</span>
+<span>{{money .Price}} / шт.</span>
+</div>{{end}}{{if .Comment}}<p class="comment">Комментарий: {{.Comment}}</p>{{end}}<div class="section-title">
+<strong>Итого: {{money .Total}}</strong>{{if eq $.Session.User.Role "admin"}}{{if eq $.Title "Управление заказами"}}{{if and (ne .Status "completed") (ne .Status "cancelled")}}<form method="post" action="/admin/orders/status" class="actions">
+<input type="hidden" name="csrf" value="{{$.Session.CSRF}}">
+<input type="hidden" name="id" value="{{.ID}}">
+<label>Новый статус<select name="status">{{if eq .Status "new"}}<option value="cooking">Готовится</option>{{end}}{{if eq .Status "cooking"}}<option value="ready">Готов к выдаче</option>{{end}}{{if eq .Status "ready"}}<option value="completed">Выполнен</option>{{end}}<option value="cancelled">Отменён</option>
+</select>
+</label>
+<button>Сохранить</button>
+</form>{{end}}{{end}}{{end}}</div>
+</article>{{else}}<section class="panel empty">
+<h2>Заказов пока нет</h2>
+<p>Самое время выбрать что-нибудь вкусное.</p>
+<a href="/" class="button">Перейти к меню</a>
+</section>{{end}}{{end}}
+{{define "orders"}}{{template "header" .}}<p class="eyebrow">ВАШИ ВКУСНЫЕ ИСТОРИИ</p>
+<h1>Мои заказы</h1>
+<p class="muted">Обновите страницу, чтобы увидеть актуальный статус. Даты указаны в UTC.</p>{{template "orderlist" .}}{{template "footer" .}}{{end}}
+{{define "adminorders"}}{{template "header" .}}{{template "adminnav" .}}<p class="eyebrow">УПРАВЛЕНИЕ КАФЕ</p>
+<h1>Все заказы</h1>
+<p class="muted">Принят → Готовится → Готов к выдаче → Выполнен. Отмена доступна до выполнения.</p>{{template "orderlist" .}}{{template "footer" .}}{{end}}

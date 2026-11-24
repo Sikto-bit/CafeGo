@@ -15,4 +15,21 @@ CREATE TABLE IF NOT EXISTS dishes (
  name TEXT NOT NULL CHECK(length(name) BETWEEN 1 AND 120), description TEXT NOT NULL,
  price INTEGER NOT NULL CHECK(price BETWEEN 1 AND 10000000)
 );
+CREATE TABLE IF NOT EXISTS cart (
+ user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ dish_id INTEGER NOT NULL REFERENCES dishes(id) ON DELETE CASCADE,
+ quantity INTEGER NOT NULL CHECK(quantity BETWEEN 1 AND 99), PRIMARY KEY(user_id,dish_id)
+);
+CREATE TABLE IF NOT EXISTS orders (
+ id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+ created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S','now')),
+ status TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new','cooking','ready','completed','cancelled')),
+ total INTEGER NOT NULL CHECK(total > 0), comment TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS order_items (
+ id INTEGER PRIMARY KEY, order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+ dish_id INTEGER REFERENCES dishes(id) ON DELETE SET NULL,
+ name TEXT NOT NULL, price INTEGER NOT NULL CHECK(price > 0), quantity INTEGER NOT NULL CHECK(quantity BETWEEN 1 AND 99)
+);
+CREATE INDEX IF NOT EXISTS orders_user ON orders(user_id,id);
 CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expires);

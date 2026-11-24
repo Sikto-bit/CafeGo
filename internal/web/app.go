@@ -33,6 +33,9 @@ type Page struct {
 	Session              Session
 	Categories           []Category
 	Dishes               []Dish
+	Cart                 []CartItem
+	Orders               []Order
+	Total                int64
 	EditCategory         Category
 	EditDish             Dish
 	Filter               int
@@ -46,10 +49,26 @@ type Dish struct {
 	Name, Description, Category string
 	Price                       int64
 }
+type CartItem struct {
+	Dish
+	Quantity int
+	Subtotal int64
+}
+type OrderItem struct {
+	Name     string
+	Price    int64
+	Quantity int
+}
+type Order struct {
+	ID                              int
+	Login, Created, Status, Comment string
+	Total                           int64
+	Items                           []OrderItem
+}
 
 func Money(n int64) string { return fmt.Sprintf("%d,%02d ₽", n/100, n%100) }
 func New(db *sql.DB, secure bool) *App {
-	funcs := template.FuncMap{"money": Money, "initial": func(s string) string {
+	funcs := template.FuncMap{"money": Money, "status": statusLabel, "initial": func(s string) string {
 		r := []rune(s)
 		if len(r) == 0 {
 			return "C"
@@ -57,6 +76,9 @@ func New(db *sql.DB, secure bool) *App {
 		return string(r[0])
 	}, "decimal": func(n int64) string { return fmt.Sprintf("%d,%02d", n/100, n%100) }}
 	return &App{DB: db, Secure: secure, templates: template.Must(template.New("pages").Funcs(funcs).ParseFS(assets, "templates/*.html"))}
+}
+func statusLabel(s string) string {
+	return map[string]string{"new": "Принят", "cooking": "Готовится", "ready": "Готов к выдаче", "completed": "Выполнен", "cancelled": "Отменён"}[s]
 }
 func (a *App) render(w http.ResponseWriter, r *http.Request, name string, p Page) {
 	p.Session = session(r)
@@ -98,6 +120,14 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("GET /admin/dishes", admin(a.dishPage))
 	mux.HandleFunc("POST /admin/dishes/save", admin(a.saveDish))
 	mux.HandleFunc("POST /admin/dishes/delete", admin(a.deleteDish))
+	mux.HandleFunc("GET /cart", client(a.cartPage))
+	mux.HandleFunc("POST /cart/add", client(a.addCart))
+	mux.HandleFunc("POST /cart/update", client(a.updateCart))
+	mux.HandleFunc("POST /cart/remove", client(a.removeCart))
+	mux.HandleFunc("POST /checkout", client(a.checkout))
+	mux.HandleFunc("GET /orders", client(a.orders))
+	mux.HandleFunc("GET /admin/orders", admin(a.adminOrders))
+	mux.HandleFunc("POST /admin/orders/status", admin(a.changeStatus))
 	mux.HandleFunc("GET /admin", admin(func(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/admin/categories")
 	}))
