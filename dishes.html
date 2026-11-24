@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0d1016">
+<title>Блюда · CafeGo</title>
+</head>
+<body>
+<header class="top">
+<a class="brand" href="index.html">Cafe<span>Go</span>
+<small>Еда. Кофе. Хороший день.</small>
+</a>
+<nav aria-label="Разделы прототипа">
+<a href="index.html">Меню</a>
+<a href="login.html">Вход</a>
+<a href="register.html">Регистрация</a>
+<a href="cart.html">Корзина</a>
+<a href="orders.html">Мои заказы</a>
+<a href="dashboard.html">Управление</a>
+</nav>
+</header>
+<main><div class="notice" role="status">Демонстрационные данные. Действия с аккаунтом, меню и заказами недоступны.</div><nav class="tabs">
+<a href="dashboard.html">Обзор</a>
+<a href="categories.html">Категории</a>
+<a href="dishes.html">Блюда</a>
+<a href="admin-orders.html">Заказы</a>
+</nav><p class="eyebrow">УПРАВЛЕНИЕ МЕНЮ</p>
+<h1>Блюда</h1>
+<div class="split">
+<section class="panel">
+<h2>Добавить блюдо</h2><div class="stack">
+<label>Название<input disabled name="name" value="" required maxlength="120">
+</label>
+<label>Описание<textarea disabled name="description" maxlength="1000" rows="3"></textarea>
+</label>
+<label>Цена, ₽<input disabled name="price" inputmode="decimal" value="" placeholder="390,00" required>
+</label>
+<label>Категория<select disabled name="category_id" required><option value="3" >Десерты</option><option value="2" >Напитки</option><option value="1" >Пицца</option></select>
+</label>
+<button disabled>Сохранить блюдо</button>
+<a href="dishes.html">Сбросить</a>
+</div></section>
+<section class="panel">
+<h2>Текущее меню</h2><div class="listrow">
+<div>
+<strong>Маргарита</strong>
+<p class="muted">Пицца · 390,00 ₽</p>
+<p>Томаты, моцарелла, базилик. Итальянская классика.</p>
+</div>
+<div class="actions">
+<span aria-disabled="true">Изменение недоступно</span>
+<div>
+<button disabled class="danger">Удалить</button>
+</div>
+</div>
+</div><div class="listrow">
+<div>
+<strong>Пепперони</strong>
+<p class="muted">Пицца · 490,00 ₽</p>
+<p>Пряная пепперони, моцарелла и томатный соус.</p>
+</div>
+<div class="actions">
+<span aria-disabled="true">Изменение недоступно</span>
+<div>
+<button disabled class="danger">Удалить</button>
+</div>
+</div>
+</div><div class="listrow">
+<div>
+<strong>Четыре сыра</strong>
+<p class="muted">Пицца · 540,00 ₽</p>
+<p>Моцарелла, пармезан, чеддер и дорблю.</p>
+</div>
+<div class="actions">
+<span aria-disabled="true">Изменение недоступно</span>
+<div>
+<button disabled class="danger">Удалить</button>
+</div>
+</div>
+</div><div class="listrow">
+<div>
+<strong>Капучино</strong>
+<p class="muted">Напитки · 190,00 ₽</p>
+<p>Двойной эспрессо и нежная молочная пенка, 250 мл.</p>
+</div>
+<div class="actions">
+<span aria-disabled="true">Изменение недоступно</span>
+<div>
+<button disabled class="danger">Удалить</button>
+</div>
+</div>
+</div><div class="listrow">
+<div>
+<strong>Ягодный лимонад</strong>
+<p class="muted">Напитки · 220,00 ₽</p>
+<p>Смородина, мята и немного летнего настроения, 400 мл.</p>
+</div>
+<div class="actions">
+<span aria-disabled="true">Изменение недоступно</span>
+<div>
+<button disabled class="danger">Удалить</button>
+</div>
+</div>
+</div><div class="listrow">
+<div>
+<strong>Чизкейк</strong>
+<p class="muted">Десерты · 290,00 ₽</p>
+<p>Сливочный десерт на хрустящей песочной основе.</p>
+</div>
+<div class="actions">
+<span aria-disabled="true">Изменение недоступно</span>
+<div>
+<button disabled class="danger">Удалить</button>
+</div>
+</div>
+</div><p class="muted">Удаление убирает блюдо из корзин. В оформленных заказах оно остаётся.</p>
+</section>
+</div></main>
+<footer>
+<strong>CafeGo</strong>
+<span>Маленькое кафе с большим вкусом</span>
+<span>Учебный проект · Без онлайн-оплаты</span>
+</footer>
+</body>
+</html>
