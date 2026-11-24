@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"database/sql"
 	"embed"
 	"fmt"
 	"html/template"
@@ -14,6 +15,7 @@ import (
 var assets embed.FS
 
 type App struct {
+	DB        *sql.DB
 	templates *template.Template
 }
 type Page struct {
@@ -33,7 +35,7 @@ type Dish struct {
 }
 
 func Money(n int64) string { return fmt.Sprintf("%d,%02d ₽", n/100, n%100) }
-func New() *App {
+func New(db *sql.DB) *App {
 	funcs := template.FuncMap{"money": Money, "initial": func(s string) string {
 		r := []rune(s)
 		if len(r) == 0 {
@@ -41,7 +43,7 @@ func New() *App {
 		}
 		return string(r[0])
 	}}
-	return &App{templates: template.Must(template.New("pages").Funcs(funcs).ParseFS(assets, "templates/*.html"))}
+	return &App{DB: db, templates: template.Must(template.New("pages").Funcs(funcs).ParseFS(assets, "templates/*.html"))}
 }
 func (a *App) render(w http.ResponseWriter, r *http.Request, name string, p Page) {
 	var b bytes.Buffer
